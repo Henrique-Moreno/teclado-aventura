@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teclado Aventura 3D - Protótipo 3</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fundo-topo: #1c2b5a;
+    --fundo-base: #0b132b;
+    --painel: #16213e;
+    --painel-claro: #1f2d52;
+    --borda: #34457a;
+    --texto: #f8fafc;
+    --suave: #aab6d8;
+    --destaque: #ffd166;
+    --destaque-escuro: #d99a00;
+    --ok: #06d6a0;
+    --erro: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'Fredoka', 'Segoe UI', system-ui, sans-serif;
+    color: var(--texto);
+    background: linear-gradient(180deg, var(--fundo-topo) 0%, var(--fundo-base) 75%);
+    user-select: none;
+  }
+
+  canvas#cena {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .card {
+    background: var(--painel);
+    border: 2px solid var(--borda);
+    border-radius: 18px;
+    padding: 10px 18px;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25);
+  }
+
+  .hud {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 5;
+    flex-wrap: wrap;
+    pointer-events: none;
+  }
+
+  .grupo { display: flex; gap: 10px; align-items: stretch; }
+
+  .stat small {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--suave);
+  }
+
+  .stat b { font-size: 28px; font-weight: 700; line-height: 1.15; }
+
+  .etapa { min-width: 190px; }
+
+  .barra {
+    margin-top: 8px;
+    height: 12px;
+    border-radius: 99px;
+    background: #0b132b;
+    overflow: hidden;
+  }
+
+  .barra i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    background: var(--destaque);
+    transition: width 0.25s ease;
+  }
+
+  .vidas { letter-spacing: 3px; color: var(--erro); }
+  .vidas .perdida { color: #2c3a66; }
+
+  .btn-peq {
+    pointer-events: auto;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--texto);
+    background: var(--painel);
+    border: 2px solid var(--borda);
+    border-radius: 18px;
+    padding: 0 14px;
+    cursor: pointer;
+  }
+
+  .btn-peq:hover { background: var(--painel-claro); }
+
+  /* Mascote Bipe, canto inferior esquerdo */
+  .mascote {
+    position: fixed;
+    left: 14px;
+    bottom: 14px;
+    z-index: 5;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  .mascote svg { width: 104px; height: auto; flex: none; animation: flutua 3s ease-in-out infinite; }
+  .mascote.pula svg { animation: pula 0.55s ease; }
+
+  @keyframes flutua {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes pula {
+    0% { transform: translateY(0) scale(1); }
+    35% { transform: translateY(-22px) scale(1.06); }
+    70% { transform: translateY(0) scale(0.97); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  .balao {
+    position: relative;
+    max-width: 260px;
+    margin-bottom: 34px;
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1.3;
+    padding: 10px 14px;
+  }
+
+  .balao::before {
+    content: '';
+    position: absolute;
+    left: -11px;
+    bottom: 16px;
+    border: 8px solid transparent;
+    border-right-color: var(--borda);
+    border-left-width: 3px;
+  }
+
+  /* Mão guia, canto inferior direito */
+  .maos {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 5;
+    width: 390px;
+    padding: 8px 10px;
+    pointer-events: none;
+  }
+
+  .maos svg, .maosIntro svg { width: 100%; height: auto; display: block; }
+
+  .maosIntro { width: min(400px, 100%); margin: 0 auto 14px; }
+
+  #toast {
+    position: fixed;
+    top: 24%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    font-size: clamp(30px, 5vw, 54px);
+    font-weight: 700;
+    text-align: center;
+    pointer-events: none;
+    color: var(--destaque);
+    text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+    opacity: 0;
+  }
+
+  #toast.mostra { animation: toastAnim 1.4s ease forwards; }
+
+  @keyframes toastAnim {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.8); }
+    15%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.05); }
+    80%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(1); }
+  }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 9, 25, 0.8);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  #overlay.oculto { display: none; }
+
+  .painel {
+    max-width: 600px;
+    width: 100%;
+    margin: auto;
+    text-align: center;
+    padding: 28px 26px 24px;
+    border-radius: 28px;
+    background: var(--painel);
+    border: 3px solid var(--borda);
+    box-shadow: 0 10px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .painel.largo { max-width: 780px; }
+
+  .painel h1 {
+    font-size: clamp(30px, 6vw, 44px);
+    line-height: 1.1;
+    color: var(--destaque);
+    margin-bottom: 10px;
+  }
+
+  .painel p { color: #dbe3f7; font-size: 19px; line-height: 1.4; margin-bottom: 16px; }
+
+  .teclas { display: flex; justify-content: center; gap: 7px; margin: 4px 0 16px; flex-wrap: wrap; }
+
+  .tecla {
+    min-width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 21px;
+    border-radius: 12px;
+    color: #0b132b;
+    border-bottom: 5px solid rgba(0, 0, 0, 0.3);
+  }
+
+  .tecla.pequena { min-width: 34px; height: 34px; font-size: 16px; border-radius: 9px; border-bottom-width: 4px; }
+
+  .novas { display: flex; justify-content: center; gap: 26px; margin: 6px 0 14px; flex-wrap: wrap; }
+
+  .nova { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .nova .tecla { min-width: 80px; height: 80px; font-size: 46px; border-radius: 18px; border-bottom-width: 8px; }
+
+  .nova span { font-size: 16px; font-weight: 500; color: var(--suave); max-width: 130px; line-height: 1.2; }
+
+  .btn {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a1a1a;
+    background: var(--destaque);
+    border: none;
+    border-bottom: 7px solid var(--destaque-escuro);
+    cursor: pointer;
+    padding: 14px 40px 10px;
+    border-radius: 20px;
+    transition: transform 0.1s ease, border-bottom-width 0.1s ease, filter 0.15s ease;
+  }
+
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(4px); border-bottom-width: 3px; }
+
+  .btn.menor { font-size: 19px; padding: 10px 24px 8px; border-bottom-width: 5px; }
+
+  .btn.claro {
+    background: #dbe7ff;
+    border-bottom-color: #8fa4d8;
+  }
+
+  .botoes { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .mini { margin-top: 16px; font-size: 14px; color: var(--suave); }
+
+  .mundos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 8px 0 6px; }
+
+  .mundo {
+    background: var(--painel-claro);
+    border: 2px solid var(--borda);
+    border-radius: 22px;
+    padding: 18px 14px 16px;
+  }
+
+  .mundo h2 { font-size: 26px; color: var(--texto); }
+  .mundo small { display: block; color: var(--suave); font-size: 15px; margin: 2px 0 12px; }
+  .mundo .teclas { gap: 4px; margin: 0 0 14px; }
+  .mundo .botoes { gap: 8px; }
+  .selo { color: var(--ok); font-size: 15px; font-weight: 600; margin-bottom: 8px; min-height: 20px; }
+
+  .resultado { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .resultado .card { min-width: 118px; background: var(--painel-claro); }
+
+  .treino { font-size: 17px; margin-bottom: 18px; color: #dbe3f7; }
+  .treino b { color: var(--destaque); }
+
+  @media (max-width: 1100px) {
+    .maos { right: auto; left: 50%; transform: translateX(-50%); }
+    .mascote { bottom: 168px; }
+  }
+
+  @media (max-width: 700px) {
+    .stat b { font-size: 22px; }
+    .card { padding: 8px 12px; }
+    .maos { width: min(340px, 94vw); }
+    .mascote svg { width: 76px; }
+    .balao { font-size: 14px; max-width: 200px; }
+    .mundos { grid-template-columns: 1fr; }
+    .nova .tecla { min-width: 66px; height: 66px; font-size: 38px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="cena"></canvas>
+
+<div class="hud">
+  <div class="grupo">
+    <div class="card stat"><small>Pontos</small><b id="pontos">0</b></div>
+    <div class="card stat etapa">
+      <small id="etapaTxt">Etapa</small>
+      <div class="barra"><i id="barraEtapa"></i></div>
+    </div>
+  </div>
+  <div class="grupo">
+    <div class="card stat"><small>Combo</small><b id="combo">0</b></div>
+    <div class="card stat"><small>Vidas</small><b id="vidas" class="vidas"></b></div>
+    <button class="btn-peq" id="btnSom" type="button">Som: ligado</button>
+    <button class="btn-peq" id="btnVoz" type="button">Voz: desligada</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div class="mascote" id="mascote">
+  <svg viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <line x1="60" y1="10" x2="60" y2="26" stroke="#aab6d8" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="60" cy="9" r="7" fill="#ffd166"/>
+    <rect x="4" y="46" width="12" height="24" rx="6" fill="#7c8fc4"/>
+    <rect x="104" y="46" width="12" height="24" rx="6" fill="#7c8fc4"/>
+    <rect x="14" y="24" width="92" height="68" rx="24" fill="#dbe7ff"/>
+    <rect x="22" y="34" width="76" height="42" rx="17" fill="#0b132b"/>
+    <g id="mOlhos"></g>
+    <g id="mBoca"></g>
+    <rect x="30" y="96" width="60" height="38" rx="15" fill="#4cc9f0"/>
+    <circle cx="60" cy="115" r="8" fill="#ffd166"/>
+    <circle cx="22" cy="112" r="9" fill="#dbe7ff"/>
+    <circle cx="98" cy="112" r="9" fill="#dbe7ff"/>
+  </svg>
+  <div class="balao card"><span id="balaoTxt">Oi! Eu sou o Bipe.</span></div>
+</div>
+
+<div class="maos card" id="maos"></div>
+
+<div id="overlay"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  /* Configuração geral */
+
+  // Cada dedo tem uma cor, igual nos dois lados das mãos
+  const COR_MINDINHO = '#ff6b8b';
+  const COR_ANELAR = '#ffb703';
+  const COR_MEDIO = '#2ec4b6';
+  const COR_INDICADOR = '#4cc9f0';
+
+  // As 10 posições de cada fileira, da esquerda para a direita
+  const COR_POR_LANE = [COR_MINDINHO, COR_ANELAR, COR_MEDIO, COR_INDICADOR, COR_INDICADOR,
+                        COR_INDICADOR, COR_INDICADOR, COR_MEDIO, COR_ANELAR, COR_MINDINHO];
+
+  // Dedos numerados de 0 a 7: 0 a 3 mão esquerda (mindinho ao indicador), 4 a 7 mão direita (indicador ao mindinho)
+  const DEDO_POR_LANE = [0, 1, 2, 3, 3, 4, 4, 5, 6, 7];
+  const COR_DEDO = [COR_MINDINHO, COR_ANELAR, COR_MEDIO, COR_INDICADOR,
+                    COR_INDICADOR, COR_MEDIO, COR_ANELAR, COR_MINDINHO];
+  const NOME_DEDO = ['mindinho esquerdo', 'anelar esquerdo', 'dedo do meio esquerdo', 'indicador esquerdo',
+                     'indicador direito', 'dedo do meio direito', 'anelar direito', 'mindinho direito'];
+
+  // Como a voz do navegador lê cada letra
+  const NOMES = {
+    a: 'a', s: 'esse', d: 'dê', f: 'efe', g: 'gê', h: 'agá', j: 'jota', k: 'cá', l: 'ele', 'ç': 'cê cedilha',
+    q: 'quê', w: 'dáblio', e: 'ê', r: 'erre', t: 'tê', y: 'ípsilon', u: 'u', i: 'i', o: 'ó', p: 'pê'
+  };
+
+  const NOTAS = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0];
+
+  // Cada mundo é uma fileira do teclado. As etapas liberam duas letras por vez
+  // e a última etapa é o chefão de palavras.
+  const MUNDOS = [
+    {
+      nome: 'Fileira do meio',
+      fileira: 'asdfghjklç',
+      codes: ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon'],
+      etapas: [
+        { letras: ['f', 'j'], dica: 'Dedos indicadores sobre o F e o J.' },
+        { letras: ['d', 'k'], dica: 'Agora os dedos do meio: D e K.' },
+        { letras: ['s', 'l'], dica: 'Agora os anelares: S e L.' },
+        { letras: ['a', 'ç'], dica: 'Agora os mindinhos: A e Ç.' },
+        { letras: ['g', 'h'], dica: 'Os indicadores esticam um pouquinho: G e H.' }
+      ],
+      palavras: ['sal', 'sala', 'fala', 'fada', 'gala', 'saga', 'faça', 'laça', 'algas', 'salsa', 'falsa'],
+      exemplo: 'sala',
+      fundoTopo: '#1c2b5a',
+      fundoBase: '#0b132b'
+    },
+    {
+      nome: 'Fileira de cima',
+      fileira: 'qwertyuiop',
+      codes: ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP'],
+      etapas: [
+        { letras: ['r', 'u'], dica: 'Fileira de cima! Os indicadores sobem: R e U.' },
+        { letras: ['e', 'i'], dica: 'Os dedos do meio sobem: E e I.' },
+        { letras: ['w', 'o'], dica: 'Os anelares sobem: W e O.' },
+        { letras: ['q', 'p'], dica: 'Os mindinhos sobem: Q e P.' },
+        { letras: ['t', 'y'], dica: 'Os indicadores esticam: T e Y.' }
+      ],
+      palavras: ['rio', 'tio', 'tiro', 'torre', 'porto', 'preto', 'quero', 'porte', 'tripe'],
+      exemplo: 'rio',
+      fundoTopo: '#14504a',
+      fundoBase: '#06201f'
+    }
+  ];
+
+  const ACERTOS_POR_ETAPA = 8;
+  const PALAVRAS_POR_CHEFAO = 4;
+  const VIDAS_INICIAIS = 5;
+  const ESTRELAS_LIVRES = 3;
+  const Y_SPAWN = 13.5;
+  const Y_CHAO = 1.9;
+
+  const posX = (i) => (i - 4.5) * 1.95 + (i < 5 ? -0.3 : 0.3);
+
+  /* Estado do jogo */
+
+  let LANES = [];
+  let estado = 'carregando';  // carregando, menu, intro, jogando, pausa, fim
+  let modo = 'aventura';      // aventura ou turbo
+  let mundoIdx = 0;
+  let etapaIdx = 0;
+  let acertosEtapa = 0;
+  let pontos = 0, combo = 0, melhorCombo = 0, vidas = VIDAS_INICIAIS;
+  let tempoSpawn = 0;
+  let ritmo = 1;              // sobe e desce conforme o desempenho da criança
+  let livresRestantes = 0;    // estrelas de exploração: errar não custa vida
+  let ultimaLetra = '';
+  let somLigado = true;
+  let vozLigada = false;
+  let falaEtapa = '';
+  let acaoEnter = null;
+  let palavra = null;
+  let filaPalavras = [];
+  let concluidos = [];
+
+  // Letras que a criança erra mais voltam com mais frequência
+  const peso = {};
+  const getPeso = (t) => peso[t] || 1;
+
+  const estrelas = [];
+  const particulas = [];
+  const pads = [];
+
+  let renderer, scene, camera, ceu, texGlow, geoEstrela;
+  const matEstrela = [], matLetraEstrela = [], matGlowEstrela = [];
+  const cacheTex = new Map();
+  const texFeixes = {};
+
+  const $ = (id) => document.getElementById(id);
+  const elPontos = $('pontos'), elCombo = $('combo'), elVidas = $('vidas');
+  const elEtapaTxt = $('etapaTxt'), elBarra = $('barraEtapa');
+  const elOverlay = $('overlay'), elToast = $('toast');
+  const elSom = $('btnSom'), elVoz = $('btnVoz');
+  const elMaos = $('maos'), elMascote = $('mascote'), elBalaoTxt = $('balaoTxt');
+
+  const laneDe = (tecla) => LANES.findIndex((l) => l.tecla === tecla);
+  const ehChefao = () => modo === 'aventura' && etapaIdx === MUNDOS[mundoIdx].etapas.length;
+  const ritmoMax = () => (modo === 'turbo' ? 2.2 : 1.7);
+
+  function todasLetras() { return LANES.map((l) => l.tecla); }
+
+  function letrasAtivas() {
+    if (estado === 'menu' || estado === 'carregando' || modo === 'turbo') return todasLetras();
+    const m = MUNDOS[mundoIdx];
+    const ate = Math.min(etapaIdx, m.etapas.length - 1);
+    return m.etapas.slice(0, ate + 1).flatMap((e) => e.letras);
+  }
+
+  /* Áudio e voz */
+
+  let audio = null;
+
+  function iniciaAudio() {
+    if (!audio) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audio = new Ctx();
+    }
+    if (audio && audio.state === 'suspended') audio.resume();
+  }
+
+  function som(freq, dur = 0.18, tipo = 'sine', vol = 0.14) {
+    if (!audio || !somLigado) return;
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = tipo;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + dur);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start();
+    o.stop(audio.currentTime + dur);
+  }
+
+  // A voz é opcional e vem desligada, porque muitas escolas não têm áudio
+  function falar(texto) {
+    if (!vozLigada || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = 'pt-BR';
+      u.rate = 0.9;
+      u.pitch = 1.1;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function alternaSom() {
+    somLigado = !somLigado;
+    elSom.textContent = somLigado ? 'Som: ligado' : 'Som: desligado';
+  }
+
+  function alternaVoz() {
+    vozLigada = !vozLigada;
+    elVoz.textContent = vozLigada ? 'Voz: ligada' : 'Voz: desligada';
+    if (!vozLigada && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  }
+
+  elSom.addEventListener('click', () => { alternaSom(); elSom.blur(); });
+  elVoz.addEventListener('click', () => { alternaVoz(); elVoz.blur(); });
+
+  /* Mascote Bipe */
+
+  const OLHOS = {
+    normal: '<circle cx="46" cy="53" r="6" fill="#ffd166"/><circle cx="74" cy="53" r="6" fill="#ffd166"/>',
+    feliz: '<path d="M39 58 Q46 47 53 58" stroke="#ffd166" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M67 58 Q74 47 81 58" stroke="#ffd166" stroke-width="4.5" fill="none" stroke-linecap="round"/>',
+    ops: '<circle cx="46" cy="52" r="5" fill="#ffd166"/><circle cx="74" cy="52" r="5" fill="#ffd166"/>'
+  };
+
+  const BOCAS = {
+    normal: '<path d="M51 65 Q60 71 69 65" stroke="#ffd166" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+    feliz: '<path d="M47 63 Q60 76 73 63" stroke="#ffd166" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+    ops: '<ellipse cx="60" cy="67" rx="4" ry="5" fill="#ffd166"/>'
+  };
+
+  let timerExpr = null;
+
+  function setExpr(expr) {
+    $('mOlhos').innerHTML = OLHOS[expr] || OLHOS.normal;
+    $('mBoca').innerHTML = BOCAS[expr] || BOCAS.normal;
+  }
+
+  function mascote(expr, texto, ms) {
+    setExpr(expr);
+    if (texto) {
+      elBalaoTxt.textContent = texto;
+    }
+    elMascote.classList.remove('pula');
+    if (expr === 'feliz') {
+      void elMascote.offsetWidth;
+      elMascote.classList.add('pula');
+    }
+    clearTimeout(timerExpr);
+    timerExpr = setTimeout(() => setExpr('normal'), ms || 2400);
+  }
+
+  /* Mão guia */
+
+  let chaveMaos = '';
+
+  function maosSvg(destaques, ativas) {
+    const dedoDest = new Set();
+    const dedoAtivo = new Set();
+    destaques.forEach((i) => { if (LANES[i]) dedoDest.add(LANES[i].dedoId); });
+    ativas.forEach((i) => { if (LANES[i]) dedoAtivo.add(LANES[i].dedoId); });
+
+    // As letras de cada dedo aparecem na ponta dele
+    const rotulos = {};
+    LANES.forEach((l) => {
+      if (!rotulos[l.dedoId]) rotulos[l.dedoId] = [];
+      rotulos[l.dedoId].push(l.tecla.toUpperCase());
+    });
+
+    function dedo(x, topo, id) {
+      const ativo = dedoAtivo.has(id);
+      const dest = dedoDest.has(id);
+      const cor = COR_DEDO[id];
+      const txt = (rotulos[id] || []).join(' ');
+      const op = ativo || dest ? 1 : 0.38;
+      const filtro = dest ? `style="filter:drop-shadow(0 0 8px ${cor})"` : '';
+      return `<g opacity="${op}" ${filtro}>
+        <rect x="${x}" y="${topo}" width="30" height="${112 - topo}" rx="15" fill="${dest ? cor : '#22325f'}" stroke="${cor}" stroke-width="2.5"/>
+        <text x="${x + 15}" y="${topo + 24}" text-anchor="middle" font-size="${txt.length > 1 ? 12 : 16}" font-weight="700" fill="${dest ? '#0b132b' : '#e8eeff'}" font-family="Fredoka, sans-serif">${txt}</text>
+      </g>`;
+    }
+
+    const xs = [24, 58, 92, 126];
+    const topos = [58, 44, 36, 46];
+    let esquerda = '';
+    let direita = '';
+    for (let k = 0; k < 4; k++) {
+      esquerda += dedo(xs[k], topos[k], k);
+      direita += dedo(440 - xs[k] - 30, topos[k], 7 - k);
+    }
+
+    const pele = 'fill="#22325f" stroke="#3d5090" stroke-width="2.5"';
+    return `<svg viewBox="0 0 440 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      ${esquerda}
+      <rect x="164" y="92" width="28" height="50" rx="14" ${pele} transform="rotate(-28 178 130)"/>
+      <rect x="24" y="88" width="150" height="52" rx="22" ${pele}/>
+      ${direita}
+      <rect x="248" y="92" width="28" height="50" rx="14" ${pele} transform="rotate(28 262 130)"/>
+      <rect x="266" y="88" width="150" height="52" rx="22" ${pele}/>
+    </svg>`;
+  }
+
+  function atualizaMaos(destaques) {
+    const ativas = new Set();
+    const letras = letrasAtivas();
+    LANES.forEach((l, i) => { if (letras.includes(l.tecla)) ativas.add(i); });
+    const chave = Array.from(destaques).sort().join(',') + '|' + Array.from(ativas).join(',') + '|' + mundoIdx;
+    if (chave === chaveMaos) return;
+    chaveMaos = chave;
+    elMaos.innerHTML = maosSvg(destaques, ativas);
+  }
+
+  /* Texturas */
+
+  function texLetra(letra, corLetra, marca) {
+    const chave = letra + '|' + corLetra + '|' + (marca ? 1 : 0);
+    if (cacheTex.has(chave)) return cacheTex.get(chave);
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const x = c.getContext('2d');
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.font = '700 180px Fredoka, "Segoe UI", sans-serif';
+    x.fillStyle = corLetra;
+    x.fillText(letra.toUpperCase(), 128, marca ? 112 : 130);
+    if (marca) x.fillRect(88, 207, 80, 13);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = 8;
+    cacheTex.set(chave, t);
+    return t;
+  }
+
+  function texBrilho() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.25, 'rgba(255,255,255,0.5)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function texFeixe(cor) {
+    if (texFeixes[cor]) return texFeixes[cor];
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 256;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 256, 0, 0);
+    g.addColorStop(0, cor);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 64, 256);
+    x.globalCompositeOperation = 'destination-in';
+    const h = x.createLinearGradient(0, 0, 64, 0);
+    h.addColorStop(0, 'rgba(0,0,0,0)');
+    h.addColorStop(0.5, 'rgba(0,0,0,1)');
+    h.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = h;
+    x.fillRect(0, 0, 64, 256);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    texFeixes[cor] = t;
+    return t;
+  }
+
+  function texChao() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1024;
+    const x = c.getContext('2d');
+    x.fillStyle = '#101a3a';
+    x.fillRect(0, 0, 1024, 1024);
+    x.strokeStyle = 'rgba(120,140,220,0.22)';
+    x.lineWidth = 2;
+    for (let i = 0; i <= 32; i++) {
+      const p = i * 32;
+      x.beginPath(); x.moveTo(p, 0); x.lineTo(p, 1024); x.stroke();
+      x.beginPath(); x.moveTo(0, p); x.lineTo(1024, p); x.stroke();
+    }
+    x.globalCompositeOperation = 'destination-out';
+    const g = x.createRadialGradient(512, 512, 100, 512, 512, 512);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,1)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 1024, 1024);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = 8;
+    return t;
+  }
+
+  /* Cena 3D */
+
+  function formaEstrela(externo, interno, pontas) {
+    const s = new THREE.Shape();
+    for (let i = 0; i < pontas * 2; i++) {
+      const r = i % 2 === 0 ? externo : interno;
+      const a = (i * Math.PI) / pontas + Math.PI / 2;
+      const px = Math.cos(a) * r;
+      const py = Math.sin(a) * r;
+      if (i === 0) s.moveTo(px, py); else s.lineTo(px, py);
+    }
+    s.closePath();
+    return s;
+  }
+
+  function montarCena() {
+    const canvas = $('cena');
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+    scene.add(new THREE.HemisphereLight(0xdbe6ff, 0x1a2350, 1.0));
+    const sol = new THREE.DirectionalLight(0xffffff, 0.85);
+    sol.position.set(4, 12, 10);
+    scene.add(sol);
+
+    texGlow = texBrilho();
+
+    const chao = new THREE.Mesh(
+      new THREE.PlaneGeometry(56, 56),
+      new THREE.MeshStandardMaterial({ map: texChao(), transparent: true, metalness: 0.2, roughness: 0.7 })
+    );
+    chao.rotation.x = -Math.PI / 2;
+    chao.position.set(0, 0, -6);
+    scene.add(chao);
+
+    const n = 220;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 120;
+      pos[i * 3 + 1] = Math.random() * 45 - 3;
+      pos[i * 3 + 2] = -15 - Math.random() * 40;
+    }
+    const geoCeu = new THREE.BufferGeometry();
+    geoCeu.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    ceu = new THREE.Points(
+      geoCeu,
+      new THREE.PointsMaterial({ color: 0xaab6d8, size: 0.14, transparent: true, opacity: 0.6, depthWrite: false })
+    );
+    scene.add(ceu);
+
+    geoEstrela = new THREE.ExtrudeGeometry(formaEstrela(1.0, 0.55, 5), {
+      depth: 0.3,
+      bevelEnabled: true,
+      bevelThickness: 0.14,
+      bevelSize: 0.14,
+      bevelSegments: 4
+    });
+    geoEstrela.center();
+
+    for (let i = 0; i < 10; i++) {
+      const cor = COR_POR_LANE[i];
+      matEstrela[i] = new THREE.MeshStandardMaterial({
+        color: cor,
+        emissive: cor,
+        emissiveIntensity: 0.3,
+        metalness: 0.1,
+        roughness: 0.45
+      });
+      matLetraEstrela[i] = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false
+      });
+      matGlowEstrela[i] = new THREE.SpriteMaterial({
+        map: texGlow,
+        color: cor,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      criaPad(i);
+    }
+
+    aplicaMundo(0);
+    ajustaCamera();
+    window.addEventListener('resize', ajustaCamera);
+    requestAnimationFrame(tick);
+  }
+
+  function criaPad(i) {
+    const x = posX(i);
+    const cor = COR_POR_LANE[i];
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x243462,
+      metalness: 0.2,
+      roughness: 0.5,
+      emissive: new THREE.Color(cor),
+      emissiveIntensity: 0.15
+    });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.9, 1.2), mat);
+    mesh.position.set(x, 0.45, 0);
+    scene.add(mesh);
+
+    // A faixa colorida mostra qual dedo usa essa tecla
+    const faixa = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.08, 1.0),
+      new THREE.MeshBasicMaterial({ color: cor, toneMapped: false })
+    );
+    faixa.position.set(x, 0.93, 0);
+    scene.add(faixa);
+
+    const matLetra = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false });
+    const plano = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), matLetra);
+    plano.position.set(x, 0.45, 0.605);
+    scene.add(plano);
+
+    const matFeixe = new THREE.MeshBasicMaterial({
+      map: texFeixe(cor),
+      transparent: true,
+      opacity: 0.1,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false
+    });
+    const feixe = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 13), matFeixe);
+    feixe.position.set(x, 7.4, -0.2);
+    scene.add(feixe);
+
+    const luz = new THREE.PointLight(cor, 0, 7, 2);
+    luz.position.set(x, 2, 1.5);
+    scene.add(luz);
+
+    pads.push({
+      mesh, mat, matLetra, matFeixe, luz,
+      brilho: 0,
+      guiaTempo: 0,
+      flash: new THREE.Color(cor),
+      ativo: true
+    });
+  }
+
+  // Troca as letras de todas as teclas e das estrelas para a fileira do mundo escolhido
+  function aplicaMundo(idx) {
+    mundoIdx = idx;
+    const m = MUNDOS[idx];
+    LANES = m.fileira.split('').map((tecla, i) => ({
+      tecla,
+      code: m.codes[i],
+      cor: COR_POR_LANE[i],
+      dedoId: DEDO_POR_LANE[i],
+      dedo: NOME_DEDO[DEDO_POR_LANE[i]],
+      nome: NOMES[tecla] || tecla,
+      marca: idx === 0 && (tecla === 'f' || tecla === 'j')
+    }));
+
+    LANES.forEach((l, i) => {
+      pads[i].matLetra.map = texLetra(l.tecla, '#ffffff', l.marca);
+      pads[i].matLetra.needsUpdate = true;
+      matLetraEstrela[i].map = texLetra(l.tecla, '#0b132b', false);
+      matLetraEstrela[i].needsUpdate = true;
+    });
+
+    document.documentElement.style.setProperty('--fundo-topo', m.fundoTopo);
+    document.documentElement.style.setProperty('--fundo-base', m.fundoBase);
+    chaveMaos = '';
+    atualizaPadsAtivos();
+  }
+
+  function ajustaCamera() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    const metadeLargura = 10.4;
+    const tanMeio = Math.tan((camera.fov * Math.PI) / 360);
+    const dist = metadeLargura / (tanMeio * camera.aspect);
+    const z = Math.max(16, dist);
+    camera.userData.z = z;
+    camera.userData.y = 9.5 * (z / 16);
+
+    // Sobe a cena um pouco pra mão guia e o mascote não taparem as teclas
+    const dy = w < 1100 ? 170 : 60;
+    camera.setViewOffset(w, h, 0, dy, w, h);
+    camera.updateProjectionMatrix();
+  }
+
+  /* Estrelas e partículas */
+
+  function criaEstrela(i, livre) {
+    const g = new THREE.Group();
+    const mesh = new THREE.Mesh(geoEstrela, matEstrela[i]);
+    g.add(mesh);
+
+    const letra = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), matLetraEstrela[i]);
+    letra.position.z = 0.32;
+    mesh.add(letra);
+
+    const brilho = new THREE.Sprite(matGlowEstrela[i]);
+    brilho.position.z = -0.4;
+    brilho.scale.set(3.2, 3.2, 1);
+    g.add(brilho);
+
+    g.position.set(posX(i), Y_SPAWN, 0);
+    scene.add(g);
+
+    estrelas.push({ i, g, mesh, brilho, livre, fase: Math.random() * 6.28 });
+  }
+
+  function removeEstrela(e) {
+    scene.remove(e.g);
+    const idx = estrelas.indexOf(e);
+    if (idx >= 0) estrelas.splice(idx, 1);
+  }
+
+  function limpaEstrelas() {
+    while (estrelas.length) removeEstrela(estrelas[0]);
+  }
+
+  function explode(posicao, cor, quantidade, forca) {
+    for (let k = 0; k < quantidade; k++) {
+      const mat = new THREE.SpriteMaterial({
+        map: texGlow,
+        color: cor,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const s = new THREE.Sprite(mat);
+      s.position.copy(posicao);
+      const tam = 0.3 + Math.random() * 0.45;
+      s.scale.setScalar(tam);
+      scene.add(s);
+      particulas.push({
+        s,
+        tam,
+        vel: new THREE.Vector3(
+          (Math.random() - 0.5) * forca * 2,
+          Math.random() * forca + 1,
+          (Math.random() - 0.5) * forca
+        ),
+        vida: 1,
+        dec: 0.9 + Math.random() * 0.9
+      });
+    }
+  }
+
+  function atualizaParticulas(dt) {
+    for (let k = particulas.length - 1; k >= 0; k--) {
+      const p = particulas[k];
+      p.vel.y -= 6 * dt;
+      p.s.position.addScaledVector(p.vel, dt);
+      p.vida -= p.dec * dt;
+      p.s.material.opacity = Math.max(0, p.vida);
+      p.s.scale.setScalar(p.tam * Math.max(0.2, p.vida));
+      if (p.vida <= 0) {
+        scene.remove(p.s);
+        p.s.material.dispose();
+        particulas.splice(k, 1);
+      }
+    }
+  }
+
+  /* Palavras do chefão */
+
+  function embaralha(lista) {
+    const a = lista.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  // As palavras começam curtas e vão ficando mais compridas
+  function montaFilaPalavras() {
+    const ord = embaralha(MUNDOS[mundoIdx].palavras).sort((a, b) => a.length - b.length);
+    const q = Math.max(1, Math.floor(ord.length / PALAVRAS_POR_CHEFAO));
+    filaPalavras = [];
+    for (let k = 0; k < PALAVRAS_POR_CHEFAO; k++) {
+      const base = Math.min(ord.length - 1, k * q);
+      const topo = Math.min(ord.length - 1, base + q - 1);
+      filaPalavras.push(ord[base + Math.floor(Math.random() * (topo - base + 1))]);
+    }
+  }
+
+  function spawnPalavra() {
+    if (!filaPalavras.length) montaFilaPalavras();
+    const texto = filaPalavras.shift();
+    const livre = livresRestantes > 0;
+    if (livre) livresRestantes--;
+
+    const g = new THREE.Group();
+    const n = texto.length;
+    const passo = 1.45;
+    const largura = (n - 1) * passo + 1.3;
+
+    const placa = new THREE.Mesh(
+      new THREE.BoxGeometry(largura + 0.5, 1.7, 0.25),
+      new THREE.MeshStandardMaterial({ color: 0x1f2d52, roughness: 0.6 })
+    );
+    placa.position.z = -0.25;
+    g.add(placa);
+
+    const tiles = [];
+    for (let k = 0; k < n; k++) {
+      const letra = texto[k];
+      const idx = laneDe(letra);
+      const cor = idx >= 0 ? LANES[idx].cor : '#ffffff';
+      const mat = new THREE.MeshStandardMaterial({
+        color: cor,
+        emissive: cor,
+        emissiveIntensity: 0.25,
+        roughness: 0.45
+      });
+      const tile = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.4), mat);
+      tile.position.x = (k - (n - 1) / 2) * passo;
+      const plano = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.0, 1.0),
+        new THREE.MeshBasicMaterial({ map: texLetra(letra, '#0b132b', false), transparent: true, depthWrite: false, toneMapped: false })
+      );
+      plano.position.z = 0.21;
+      tile.add(plano);
+      g.add(tile);
+      tiles.push({ tile, mat });
+    }
+
+    g.position.set(0, Y_SPAWN, 0);
+    scene.add(g);
+    palavra = { texto, idx: 0, g, tiles, livre, fase: Math.random() * 6.28 };
+  }
+
+  function removePalavra() {
+    if (palavra) {
+      scene.remove(palavra.g);
+      palavra = null;
+    }
+  }
+
+  function pressionaPalavra(i) {
+    const esperada = palavra.texto[palavra.idx];
+    if (LANES[i].tecla === esperada) {
+      const t = palavra.tiles[palavra.idx];
+      t.mat.color.set('#06d6a0');
+      t.mat.emissive.set('#06d6a0');
+      const pos = new THREE.Vector3();
+      t.tile.getWorldPosition(pos);
+      explode(pos, LANES[i].cor, 14, 3.5);
+      som(NOTAS[i], 0.2, 'sine', 0.15);
+
+      pontos += 12 + Math.min(combo, 10) * 2;
+      combo++;
+      melhorCombo = Math.max(melhorCombo, combo);
+      ritmo = Math.min(ritmoMax(), ritmo + 0.015);
+      palavra.idx++;
+      atualizaHud();
+      if (palavra.idx >= palavra.texto.length) completaPalavra();
+    } else {
+      som(190, 0.15, 'triangle', 0.1);
+      const alvo = laneDe(esperada);
+      if (alvo >= 0) {
+        pads[alvo].guiaTempo = 1.8;
+        mascote('ops', 'Quase! Procure o ' + esperada.toUpperCase() + ': use o ' + LANES[alvo].dedo + '.');
+      }
+    }
+  }
+
+  function completaPalavra() {
+    const pos = palavra.g.position.clone();
+    const texto = palavra.texto;
+    explode(pos, '#06d6a0', 34, 5);
+    som(659.25, 0.15, 'sine', 0.14);
+    setTimeout(() => som(783.99, 0.25, 'sine', 0.14), 110);
+    removePalavra();
+    acertosEtapa++;
+    tempoSpawn = 1.0;
+    mascote('feliz', 'Isso! ' + texto.toUpperCase() + '!');
+    atualizaHud();
+    verificaEtapa();
+  }
+
+  function perdePalavra() {
+    const texto = palavra.texto;
+    const livre = palavra.livre;
+    explode(palavra.g.position, '#ffffff', 16, 3);
+    removePalavra();
+    tempoSpawn = 1.2;
+    mascote('ops', 'A palavra era ' + texto.toUpperCase() + '. Tudo bem, vem outra!', 3200);
+
+    if (livre) {
+      som(300, 0.2, 'triangle', 0.08);
+      return;
+    }
+    som(150, 0.3, 'sawtooth', 0.07);
+    vidas--;
+    combo = 0;
+    ritmo = Math.max(0.7, ritmo - 0.12);
+    atualizaHud();
+    if (vidas <= 0) fim(false);
+  }
+
+  /* Regras do jogo */
+
+  function atualizaPadsAtivos() {
+    const ativas = letrasAtivas();
+    pads.forEach((p, i) => {
+      p.ativo = LANES[i] ? ativas.includes(LANES[i].tecla) : false;
+      p.matLetra.opacity = p.ativo ? 1 : 0.25;
+    });
+  }
+
+  // Começa devagar e só acelera se a criança estiver indo bem
+  function velocidade() {
+    if (modo === 'turbo') return 1.8 * ritmo;
+    const nivel = mundoIdx * 6 + etapaIdx;
+    return (1.1 + nivel * 0.12) * ritmo;
+  }
+
+  function intervalo() {
+    if (modo === 'turbo') return Math.min(3, Math.max(0.9, 2.4 / ritmo));
+    return Math.min(4.5, Math.max(1.8, 3.2 / ritmo));
+  }
+
+  function maxSimultaneas() {
+    if (modo === 'turbo') return 3;
+    return Math.min(3, 1 + etapaIdx + (mundoIdx > 0 ? 1 : 0));
+  }
+
+  // A tecla certa fica destacada só no começo e nas estrelas de exploração
+  function comGuia(e) {
+    if (modo === 'turbo') return false;
+    if (e.livre) return true;
+    return mundoIdx === 0 ? etapaIdx <= 1 : etapaIdx === 0;
+  }
+
+  function sorteiaLetra() {
+    const m = MUNDOS[mundoIdx];
+    const ativas = letrasAtivas();
+    const novas = (modo === 'aventura' && etapaIdx > 0 && etapaIdx < m.etapas.length) ? m.etapas[etapaIdx].letras : [];
+    const ocupadas = estrelas.map((e) => LANES[e.i].tecla);
+    let candidatas = ativas.filter((t) => !ocupadas.includes(t));
+    if (candidatas.length > 1) candidatas = candidatas.filter((t) => t !== ultimaLetra);
+    if (!candidatas.length) return null;
+
+    // Letras novas e letras erradas pesam mais, as antigas voltam misturadas
+    const pesos = candidatas.map((t) => getPeso(t) * (novas.includes(t) ? 1.6 : 1));
+    const soma = pesos.reduce((a, b) => a + b, 0);
+    let sorteio = Math.random() * soma;
+    for (let k = 0; k < candidatas.length; k++) {
+      sorteio -= pesos[k];
+      if (sorteio <= 0) return candidatas[k];
+    }
+    return candidatas[candidatas.length - 1];
+  }
+
+  function spawn() {
+    if (ehChefao()) {
+      if (!palavra) spawnPalavra();
+      return;
+    }
+    if (estrelas.length >= maxSimultaneas()) return;
+    const letra = sorteiaLetra();
+    if (!letra) return;
+    ultimaLetra = letra;
+    const i = laneDe(letra);
+    const livre = livresRestantes > 0;
+    if (livre) livresRestantes--;
+    criaEstrela(i, livre);
+    if (comGuia(estrelas[estrelas.length - 1])) falar(LANES[i].nome);
+  }
+
+  function pressiona(i) {
+    if (!LANES[i]) return;
+    const p = pads[i];
+    p.brilho = 1;
+    p.flash.set(LANES[i].cor);
+
+    if (ehChefao()) {
+      if (palavra) pressionaPalavra(i);
+      return;
+    }
+
+    let alvo = null;
+    estrelas.forEach((e) => {
+      if (e.i === i && (!alvo || e.g.position.y < alvo.g.position.y)) alvo = e;
+    });
+
+    if (alvo) {
+      acerta(alvo);
+    } else {
+      // Tecla errada não tira vida, só um som suave e uma dica
+      som(190, 0.15, 'triangle', 0.1);
+      const maisBaixa = estrelas.slice().sort((a, b) => a.g.position.y - b.g.position.y)[0];
+      if (maisBaixa) {
+        const l = LANES[maisBaixa.i];
+        peso[l.tecla] = Math.min(4, getPeso(l.tecla) * 1.2);
+        pads[maisBaixa.i].guiaTempo = 1.8;
+        mascote('ops', 'Quase! O ' + l.tecla.toUpperCase() + ' usa o ' + l.dedo + '.');
+      }
+    }
+  }
+
+  function acerta(e) {
+    const tecla = LANES[e.i].tecla;
+    pontos += 10 + Math.min(combo, 10) * 2;
+    combo++;
+    acertosEtapa++;
+    melhorCombo = Math.max(melhorCombo, combo);
+    ritmo = Math.min(ritmoMax(), ritmo + 0.03);
+    peso[tecla] = Math.max(1, getPeso(tecla) * 0.7);
+
+    explode(e.g.position, LANES[e.i].cor, 26, 4.5);
+    removeEstrela(e);
+    som(NOTAS[e.i], 0.22, 'sine', 0.16);
+    som(NOTAS[e.i] * 2, 0.15, 'triangle', 0.06);
+
+    if (combo === 5) { mostraToast('Muito bem!'); mascote('feliz', 'Isso aí!'); }
+    else if (combo === 10) { mostraToast('Incrível!'); mascote('feliz', 'Uau, que rápido!'); }
+    else if (combo === 20) { mostraToast('Fantástico!'); mascote('feliz', 'Você é demais!'); }
+    else if (combo === 40) { mostraToast('Lendário!'); mascote('feliz', 'Mestre do teclado!'); }
+
+    atualizaHud();
+    verificaEtapa();
+  }
+
+  function perde(e) {
+    const l = LANES[e.i];
+    pads[e.i].brilho = 1;
+    pads[e.i].guiaTempo = 2.2;
+
+    explode(e.g.position, '#ffffff', 12, 2.5);
+    removeEstrela(e);
+    peso[l.tecla] = Math.min(4, getPeso(l.tecla) * 1.8);
+
+    // Mostra a resposta certa depois do erro, pra criança aprender com ele
+    mascote('ops', 'Era o ' + l.tecla.toUpperCase() + ', com o ' + l.dedo + '.', 3200);
+
+    if (e.livre) {
+      som(300, 0.2, 'triangle', 0.08);
+      return;
+    }
+
+    som(150, 0.3, 'sawtooth', 0.07);
+    vidas--;
+    combo = 0;
+    ritmo = Math.max(0.7, ritmo - 0.12);
+    atualizaHud();
+    if (vidas <= 0) fim(false);
+  }
+
+  // Confere se a etapa terminou e, se sim, passa para a próxima
+  function verificaEtapa() {
+    if (modo !== 'aventura') return;
+    const m = MUNDOS[mundoIdx];
+    const chefao = ehChefao();
+    const meta = chefao ? PALAVRAS_POR_CHEFAO : ACERTOS_POR_ETAPA;
+    if (acertosEtapa < meta) return;
+
+    som(784, 0.3, 'sine', 0.14);
+
+    if (chefao) {
+      if (!concluidos.includes(mundoIdx)) {
+        concluidos.push(mundoIdx);
+      }
+      fim(true);
+      return;
+    }
+
+    etapaIdx++;
+    acertosEtapa = 0;
+    limpaEstrelas();
+    filaPalavras = [];
+    livresRestantes = ehChefao() ? 1 : ESTRELAS_LIVRES;
+    atualizaPadsAtivos();
+    atualizaHud();
+    mostraIntro();
+  }
+
+  /* Telas e fluxo */
+
+  function iniciar(m, novoModo) {
+    iniciaAudio();
+    modo = novoModo;
+    aplicaMundo(m);
+    limpaEstrelas();
+    removePalavra();
+    pontos = 0; combo = 0; melhorCombo = 0; vidas = VIDAS_INICIAIS;
+    ritmo = 1;
+    ultimaLetra = '';
+    etapaIdx = 0;
+    acertosEtapa = 0;
+    filaPalavras = [];
+    LANES.forEach((l) => { peso[l.tecla] = 1; });
+    livresRestantes = modo === 'turbo' ? 0 : ESTRELAS_LIVRES;
+    atualizaPadsAtivos();
+    atualizaHud();
+    if (modo === 'turbo') mostraIntroTurbo(); else mostraIntro();
+  }
+
+  // Recomeça a etapa em que a criança parou, sem perder o que já conquistou
+  function retomar() {
+    iniciaAudio();
+    limpaEstrelas();
+    removePalavra();
+    vidas = VIDAS_INICIAIS;
+    combo = 0;
+    ritmo = 1;
+    acertosEtapa = 0;
+    filaPalavras = [];
+    livresRestantes = ehChefao() ? 1 : ESTRELAS_LIVRES;
+    atualizaPadsAtivos();
+    atualizaHud();
+    mostraIntro();
+  }
+
+  function mostraIntro() {
+    estado = 'intro';
+    const m = MUNDOS[mundoIdx];
+    const chefao = ehChefao();
+    const ativas = new Set();
+    letrasAtivas().forEach((t) => ativas.add(laneDe(t)));
+    const destaque = new Set();
+    let titulo, texto, centro;
+
+    if (chefao) {
+      titulo = 'Chefão das palavras!';
+      texto = 'Digite as letras na ordem, como numa palavra de verdade.';
+      const ex = m.exemplo.split('').map((t) => {
+        const l = LANES[laneDe(t)];
+        return `<div class="tecla" style="background:${l.cor}">${t.toUpperCase()}</div>`;
+      }).join('');
+      centro = `<div class="teclas">${ex}</div>`;
+    } else {
+      const et = m.etapas[etapaIdx];
+      titulo = (etapaIdx === 0 && mundoIdx === 0) ? 'Vamos começar!' : 'Letras novas!';
+      texto = et.dica;
+      et.letras.forEach((t) => destaque.add(laneDe(t)));
+      const caps = et.letras.map((t) => {
+        const l = LANES[laneDe(t)];
+        return `<div class="nova"><div class="tecla" style="background:${l.cor}">${t.toUpperCase()}</div><span>${l.dedo}</span></div>`;
+      }).join('');
+      centro = `<div class="novas">${caps}</div>`;
+    }
+
+    falaEtapa = (etapaIdx === 0 && mundoIdx === 0 ? 'Oi, eu sou o Bipe! ' : '') + texto;
+    acaoEnter = { acao: 'comecar' };
+
+    elOverlay.innerHTML = `
+      <div class="painel card">
+        <h1>${titulo}</h1>
+        ${centro}
+        <div class="maosIntro">${maosSvg(destaque, ativas)}</div>
+        <p>${texto}</p>
+        <button class="btn" data-acao="comecar">Vamos lá!</button>
+        <div class="mini">Enter ou Espaço</div>
+      </div>`;
+    elOverlay.classList.remove('oculto');
+    mascote('normal', falaEtapa, 6000);
+    falar(texto);
+  }
+
+  function mostraIntroTurbo() {
+    estado = 'intro';
+    const m = MUNDOS[mundoIdx];
+    falaEtapa = 'Modo turbo! Todas as letras, sem ajuda. Até onde você chega?';
+    acaoEnter = { acao: 'comecar' };
+    const ativas = new Set(LANES.map((l, i) => i));
+    elOverlay.innerHTML = `
+      <div class="painel card">
+        <h1>Desafio Turbo</h1>
+        <p>${m.nome}: todas as letras, estrelas mais rápidas e sem ajuda. Até onde você chega?</p>
+        <div class="maosIntro">${maosSvg(new Set(), ativas)}</div>
+        <button class="btn" data-acao="comecar">Bora!</button>
+        <div class="mini">Enter ou Espaço</div>
+      </div>`;
+    elOverlay.classList.remove('oculto');
+    mascote('feliz', falaEtapa, 6000);
+    falar(falaEtapa);
+  }
+
+  function comecar() {
+    if (estado !== 'intro') return;
+    estado = 'jogando';
+    tempoSpawn = 0.6;
+    elOverlay.classList.add('oculto');
+    if (document.activeElement) document.activeElement.blur();
+    mascote('feliz', falaEtapa, 3000);
+  }
+
+  function fim(venceu) {
+    estado = 'fim';
+    limpaEstrelas();
+    removePalavra();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    let recorde = 0;
+    let novoRecorde = false;
+    if (pontos > recorde) {
+      recorde = pontos;
+      novoRecorde = true;
+    }
+
+    const treinar = letrasAtivas().filter((t) => getPeso(t) >= 1.5).map((t) => t.toUpperCase());
+    const blocoTreino = (modo === 'aventura')
+      ? (treinar.length
+          ? `<div class="treino">Vale treinar mais: <b>${treinar.join(', ')}</b></div>`
+          : `<div class="treino">Você acertou bem todas as letras!</div>`)
+      : '';
+
+    const m = MUNDOS[mundoIdx];
+    const temProximo = mundoIdx < MUNDOS.length - 1;
+    const bt = (acao, texto, mundo, classe) =>
+      `<button class="btn ${classe || ''}" data-acao="${acao}"${mundo !== undefined ? ` data-mundo="${mundo}"` : ''}>${texto}</button>`;
+
+    let titulo, texto, botoes;
+
+    if (venceu) {
+      titulo = temProximo ? 'Mundo concluído!' : 'Missão cumprida!';
+      texto = temProximo
+        ? `Você dominou a ${m.nome.toLowerCase()}. Parabéns!`
+        : 'Você completou todos os mundos. Que craque do teclado!';
+      botoes = (temProximo ? bt('aventura', 'Próximo mundo', mundoIdx + 1) : '')
+             + bt('turbo', 'Desafio turbo', mundoIdx, temProximo ? 'claro menor' : '')
+             + bt('menu', 'Menu', undefined, 'claro menor');
+      acaoEnter = temProximo ? { acao: 'aventura', mundo: mundoIdx + 1 } : { acao: 'turbo', mundo: mundoIdx };
+      mascote('feliz', temProximo ? 'Conseguimos! Vamos para o próximo mundo?' : 'Missão cumprida! Você é incrível!', 6000);
+    } else if (modo === 'aventura') {
+      titulo = 'Quase lá!';
+      texto = novoRecorde ? 'Novo recorde! Vamos tentar essa etapa de novo?' : 'Todo mundo erra. Vamos tentar essa etapa de novo?';
+      botoes = bt('retomar', 'Tentar de novo') + bt('menu', 'Menu', undefined, 'claro menor');
+      acaoEnter = { acao: 'retomar' };
+      mascote('normal', 'Você consegue! Vamos de novo.', 6000);
+    } else {
+      titulo = 'Fim do turbo';
+      texto = novoRecorde ? 'Novo recorde! Parabéns!' : 'Boa tentativa! Dá pra bater o recorde.';
+      botoes = bt('turbo', 'Jogar de novo', mundoIdx) + bt('menu', 'Menu', undefined, 'claro menor');
+      acaoEnter = { acao: 'turbo', mundo: mundoIdx };
+      mascote('feliz', 'Que turbo! Quer tentar de novo?', 6000);
+    }
+
+    elOverlay.innerHTML = `
+      <div class="painel card">
+        <h1>${titulo}</h1>
+        <p>${texto}</p>
+        <div class="resultado">
+          <div class="card stat"><small>Pontos</small><b>${pontos}</b></div>
+          <div class="card stat"><small>Melhor combo</small><b>${melhorCombo}</b></div>
+          <div class="card stat"><small>Recorde</small><b>${recorde}</b></div>
+        </div>
+        ${blocoTreino}
+        <div class="botoes">${botoes}</div>
+        <div class="mini">Enter ou Espaço para o botão principal</div>
+      </div>`;
+    elOverlay.classList.remove('oculto');
+    falar(texto);
+  }
+
+  function pausa() {
+    if (estado !== 'jogando') return;
+    estado = 'pausa';
+    elOverlay.innerHTML = `
+      <div class="painel card">
+        <h1>Pausado</h1>
+        <p>Respire um pouquinho. Quando quiser, é só continuar.</p>
+        <div class="botoes">
+          <button class="btn" data-acao="continuar">Continuar</button>
+          <button class="btn claro menor" data-acao="menu">Menu</button>
+        </div>
+        <div class="mini">Esc também continua</div>
+      </div>`;
+    elOverlay.classList.remove('oculto');
+  }
+
+  function continuar() {
+    if (estado !== 'pausa') return;
+    estado = 'jogando';
+    elOverlay.classList.add('oculto');
+    if (document.activeElement) document.activeElement.blur();
+  }
+
+  function telaCarregando() {
+    elOverlay.innerHTML = `<div class="painel card"><h1>Teclado Aventura</h1><p>Carregando o jogo...</p></div>`;
+  }
+
+  function voltaMenu() {
+    limpaEstrelas();
+    removePalavra();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    estado = 'menu';
+    modo = 'aventura';
+    etapaIdx = 0;
+    acertosEtapa = 0;
+    aplicaMundo(0);
+    atualizaHud();
+    telaMenu();
+  }
+
+  function telaMenu() {
+    estado = 'menu';
+    acaoEnter = { acao: 'aventura', mundo: 0 };
+    const cards = MUNDOS.map((m, idx) => {
+      const teclas = m.fileira.split('').map((t, i) =>
+        `<div class="tecla pequena" style="background:${COR_POR_LANE[i]}">${t.toUpperCase()}</div>`).join('');
+      const selo = concluidos.includes(idx) ? '✓ Concluído' : '';
+      return `
+        <div class="mundo">
+          <h2>Mundo ${idx + 1}</h2>
+          <small>${m.nome}</small>
+          <div class="teclas">${teclas}</div>
+          <div class="selo">${selo}</div>
+          <div class="botoes">
+            <button class="btn menor" data-acao="aventura" data-mundo="${idx}">Aventura</button>
+            <button class="btn menor claro" data-acao="turbo" data-mundo="${idx}">Turbo</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    elOverlay.innerHTML = `
+      <div class="painel largo card">
+        <h1>Teclado Aventura</h1>
+        <p>Estrelas com letras caem do céu. Aperte a tecla certa antes que cheguem ao chão! Cada cor é um dedo.</p>
+        <div class="mundos">${cards}</div>
+        <div class="mini">Aventura ensina passo a passo e termina num chefão de palavras. Turbo é para quem já sabe tudo. Enter começa o Mundo 1.</div>
+      </div>`;
+    elOverlay.classList.remove('oculto');
+    mascote('feliz', 'Oi, eu sou o Bipe! Escolha um mundo para começar.', 6000);
+  }
+
+  function executa(acao, mundo) {
+    if (acao === 'aventura') iniciar(mundo, 'aventura');
+    else if (acao === 'turbo') iniciar(mundo, 'turbo');
+    else if (acao === 'retomar') retomar();
+    else if (acao === 'comecar') comecar();
+    else if (acao === 'continuar') continuar();
+    else if (acao === 'menu') voltaMenu();
+  }
+
+  elOverlay.addEventListener('click', (ev) => {
+    const alvo = ev.target.closest('[data-acao]');
+    if (!alvo) return;
+    const mundo = alvo.dataset.mundo !== undefined ? parseInt(alvo.dataset.mundo, 10) : undefined;
+    executa(alvo.dataset.acao, mundo);
+  });
+
+  function atualizaHud() {
+    elPontos.textContent = pontos;
+    elCombo.textContent = combo;
+    let cora = '';
+    for (let i = 0; i < VIDAS_INICIAIS; i++) {
+      cora += i < vidas ? '♥' : '<span class="perdida">♥</span>';
+    }
+    elVidas.innerHTML = cora;
+
+    if (modo === 'turbo') {
+      elEtapaTxt.textContent = 'Turbo · ' + MUNDOS[mundoIdx].nome;
+      elBarra.style.width = ((acertosEtapa % 10) * 10) + '%';
+    } else {
+      const m = MUNDOS[mundoIdx];
+      const total = m.etapas.length + 1;
+      const meta = ehChefao() ? PALAVRAS_POR_CHEFAO : ACERTOS_POR_ETAPA;
+      elEtapaTxt.textContent = 'Mundo ' + (mundoIdx + 1) + ' · Etapa ' + (etapaIdx + 1) + '/' + total;
+      elBarra.style.width = Math.min(100, (acertosEtapa / meta) * 100) + '%';
+    }
+  }
+
+  let timerToast = null;
+  function mostraToast(texto) {
+    elToast.textContent = texto;
+    elToast.classList.remove('mostra');
+    void elToast.offsetWidth;
+    elToast.classList.add('mostra');
+    clearTimeout(timerToast);
+    timerToast = setTimeout(() => elToast.classList.remove('mostra'), 1500);
+  }
+
+  /* Teclado */
+
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (estado === 'carregando') return;
+
+    if (estado === 'jogando') {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        pausa();
+        return;
+      }
+      // Usa a posição física da tecla, que é o que a criança precisa aprender
+      const i = LANES.findIndex((l) => l.code === e.code);
+      if (i >= 0) {
+        e.preventDefault();
+        pressiona(i);
+      }
+      return;
+    }
+
+    if (estado === 'pausa') {
+      if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        continuar();
+      }
+      return;
+    }
+
+    // Menu, intro e fim: Enter ou Espaço fazem a ação principal da tela
+    if (e.code === 'Enter' || e.code === 'Space') {
+      e.preventDefault();
+      if (acaoEnter) executa(acaoEnter.acao, acaoEnter.mundo);
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pausa();
+  });
+
+  /* Laço principal */
+
+  let ultimo = performance.now();
+
+  function tick(agora) {
+    requestAnimationFrame(tick);
+    const dt = Math.min(0.05, (agora - ultimo) / 1000);
+    ultimo = agora;
+    const t = agora / 1000;
+
+    const guiadas = new Set();
+
+    if (estado === 'jogando') {
+      tempoSpawn -= dt;
+      if (tempoSpawn <= 0) {
+        spawn();
+        tempoSpawn = intervalo();
+      }
+
+      const v = velocidade();
+
+      for (let k = estrelas.length - 1; k >= 0; k--) {
+        const e = estrelas[k];
+        e.g.position.y -= v * dt;
+        e.mesh.rotation.y = Math.sin(t * 1.6 + e.fase) * 0.5;
+        e.mesh.rotation.z = Math.sin(t * 1.1 + e.fase) * 0.1;
+        const pulso = 3.2 + Math.sin(t * 3 + e.fase) * 0.25;
+        e.brilho.scale.set(pulso, pulso, 1);
+        if (comGuia(e) && e.g.position.y < 7.5) guiadas.add(e.i);
+        if (e.g.position.y < Y_CHAO) perde(e);
+      }
+
+      if (palavra) {
+        palavra.g.position.y -= v * 0.7 * dt;
+        palavra.g.rotation.z = Math.sin(t * 1.2 + palavra.fase) * 0.02;
+        // A letra que falta digitar pulsa
+        palavra.tiles.forEach((tl, j) => {
+          tl.tile.scale.setScalar(j === palavra.idx ? 1.08 + Math.sin(t * 7) * 0.05 : 1);
+        });
+        if (palavra.g.position.y < Y_CHAO + 0.2) perdePalavra();
+      }
+    }
+
+    atualizaParticulas(dt);
+
+    pads.forEach((p, i) => {
+      p.brilho = Math.max(0, p.brilho - dt * 3);
+      p.guiaTempo = Math.max(0, p.guiaTempo - dt);
+      const guiada = guiadas.has(i) || p.guiaTempo > 0;
+      if (guiada) guiadas.add(i);
+      const pulsoGuia = guiada ? 0.4 + Math.sin(t * 7) * 0.2 : 0;
+      p.mat.emissive.copy(p.flash);
+      p.mat.emissiveIntensity = (p.ativo ? 0.15 : 0.03) + pulsoGuia + p.brilho * 1.0;
+      p.luz.intensity = p.brilho * 3;
+      p.matFeixe.opacity = (p.ativo ? 0.1 : 0) + (guiada ? 0.25 : 0) + p.brilho * 0.4;
+      p.mesh.position.y = 0.45 - p.brilho * 0.06;
+    });
+
+    atualizaMaos(guiadas);
+
+    camera.position.set(Math.sin(t * 0.3) * 0.6, camera.userData.y, camera.userData.z);
+    camera.lookAt(0, 4, 0);
+
+    ceu.rotation.y = t * 0.008;
+
+    renderer.render(scene, camera);
+  }
+
+  /* Início */
+
+  setExpr('normal');
+  telaCarregando();
+  atualizaHud();
+
+  // Espera a fonte carregar pra desenhar as letras direitinho nas texturas
+  const espera = (document.fonts && document.fonts.load)
+    ? Promise.race([
+        document.fonts.load('700 180px Fredoka'),
+        new Promise((r) => setTimeout(r, 1500))
+      ])
+    : Promise.resolve();
+
+  espera.then(() => {
+    montarCena();
+    voltaMenu();
+  });
+</script>
+</body>
+</html>
